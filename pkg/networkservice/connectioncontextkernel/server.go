@@ -17,8 +17,13 @@
 package connectioncontextkernel
 
 import (
-	"github.com/networkservicemesh/networkservicemesh/controlplane/api/networkservice"
 	"github.com/networkservicemesh/sdk/pkg/networkservice/core/chain"
+	"google.golang.org/grpc"
+
+	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/connectioncontextkernel/ethernetcontext"
+	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/connectioncontextkernel/ethernetcontext/arps"
+
+	"github.com/networkservicemesh/networkservicemesh/controlplane/api/networkservice"
 
 	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/connectioncontextkernel/ethernetcontext/macaddress"
 	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/connectioncontextkernel/ipcontext/ipaddress"
@@ -48,10 +53,13 @@ import (
 //                                            |                           |
 //                                            +---------------------------+
 //
-func NewServer() networkservice.NetworkServiceServer {
+func NewServer(conn *grpc.ClientConn) networkservice.NetworkServiceServer {
 	return chain.NewNetworkServiceServer(
 		ipaddress.NewServer(),
+		ethernetcontext.NewServer(conn),
 		macaddress.NewServer(),
+		arps.NewServer(),
+
 		// Note: routes are only applicable in this circumstance in the server side
 		routes.NewServer(),
 	)

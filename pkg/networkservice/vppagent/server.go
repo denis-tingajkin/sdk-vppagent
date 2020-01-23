@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Doc.ai and/or its affiliates.
+//
 // Copyright (c) 2020 Cisco Systems, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -35,9 +37,9 @@ func NewServer() networkservice.NetworkServiceServer {
 }
 
 func (c *configServer) Request(ctx context.Context, request *networkservice.NetworkServiceRequest) (*connection.Connection, error) {
-	return next.Server(ctx).Request(withConfig(ctx), request)
+	return next.Server(ctx).Request(WithConfig(ctx), request)
 }
 
 func (c *configServer) Close(ctx context.Context, conn *connection.Connection) (*empty.Empty, error) {
-	return next.Server(ctx).Close(withConfig(ctx), conn)
+	return next.Server(ctx).Close(WithConfig(ctx), conn)
 }

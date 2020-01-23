@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Doc.ai and/or its affiliates.
+//
 // Copyright (c) 2020 Cisco Systems, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -31,7 +33,7 @@ import (
 	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/vppagent"
 )
 
-type setVppMacServer struct{}
+type setKernelMacServer struct{}
 
 // NewServer creates a NetworkServiceServer chain element to set the mac address on a kernel interface
 // It sets the Mac Address on the *kernel* side of an interface plugged into the
@@ -57,26 +59,27 @@ type setVppMacServer struct{}
 //                              +---------------------------+
 //
 func NewServer() networkservice.NetworkServiceServer {
-	return &setVppMacServer{}
+	return &setKernelMacServer{}
 }
 
-func (s *setVppMacServer) Request(ctx context.Context, request *networkservice.NetworkServiceRequest) (*connection.Connection, error) {
-	conf := vppagent.Config(ctx)
-	conn, err := next.Client(ctx).Request(ctx, request)
-	if err != nil {
-		return nil, err
-	}
+func (s *setKernelMacServer) Request(ctx context.Context, request *networkservice.NetworkServiceRequest) (*connection.Connection, error) {
 	if mechanism := kernel.ToMechanism(request.GetConnection().GetMechanism()); mechanism != nil {
-		index := len(conf.GetLinuxConfig().GetInterfaces()) - 1
-		conf.GetLinuxConfig().GetInterfaces()[index+1].PhysAddress = conn.GetContext().GetEthernetContext().GetDstMac()
+		config := vppagent.Config(ctx)
+		iface := vppagent.DestinationLinuxInterface(config, request.Connection.Id)
+		if iface != nil && !request.Connection.GetContext().IsEthernetContextEmtpy() {
+			iface.PhysAddress = request.Connection.GetContext().GetEthernetContext().DstMac
+		}
 	}
-	return conn, nil
+	return next.Server(ctx).Request(ctx, request)
 }
 
-func (s *setVppMacServer) Close(ctx context.Context, conn *connection.Connection) (*empty.Empty, error) {
-	conf := vppagent.Config(ctx)
-	if mechanism := kernel.ToMechanism(conn.GetMechanism()); mechanism != nil && len(conf.GetLinuxConfig().GetInterfaces()) > 0 {
-		conf.GetLinuxConfig().GetInterfaces()[len(conf.GetVppConfig().GetInterfaces())-1].PhysAddress = conn.GetContext().GetEthernetContext().GetDstMac()
+func (s *setKernelMacServer) Close(ctx context.Context, conn *connection.Connection) (*empty.Empty, error) {
+	if mechanism := kernel.ToMechanism(conn.GetMechanism()); mechanism != nil {
+		config := vppagent.Config(ctx)
+		iface := vppagent.DestinationLinuxInterface(config, conn.Id)
+		if iface != nil && !conn.GetContext().IsEthernetContextEmtpy() {
+			iface.PhysAddress = conn.GetContext().GetEthernetContext().DstMac
+		}
 	}
-	return next.Client(ctx).Close(ctx, conn)
+	return next.Server(ctx).Close(ctx, conn)
 }
