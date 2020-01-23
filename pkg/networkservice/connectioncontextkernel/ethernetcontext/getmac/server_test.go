@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ethernetcontext
+package getmac
 
 import (
 	"context"
@@ -95,7 +95,7 @@ func TestServerBasic(t *testing.T) {
 		},
 	}
 
-	server := next.NewNetworkServiceServer(&setEthernetContextServer{
+	server := next.NewNetworkServiceServer(&getMacServer{
 		client: &testDumpConfiguratorClient{},
 	})
 	cc, err := server.Request(ctx, request)

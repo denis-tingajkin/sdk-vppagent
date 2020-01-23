@@ -20,7 +20,8 @@ import (
 	"github.com/networkservicemesh/sdk/pkg/networkservice/core/chain"
 	"google.golang.org/grpc"
 
-	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/connectioncontextkernel/ethernetcontext"
+	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/connectioncontextkernel/ethernetcontext/getmac"
+
 	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/connectioncontextkernel/ethernetcontext/arps"
 
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/networkservice"
@@ -56,7 +57,7 @@ import (
 func NewServer(conn *grpc.ClientConn) networkservice.NetworkServiceServer {
 	return chain.NewNetworkServiceServer(
 		ipaddress.NewServer(),
-		ethernetcontext.NewServer(conn),
+		getmac.NewServer(conn),
 		macaddress.NewServer(),
 		arps.NewServer(),
 

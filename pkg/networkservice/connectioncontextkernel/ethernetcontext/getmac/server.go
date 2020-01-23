@@ -14,8 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package ethernetcontext provides networkservice chain elements for applying ethernet context
-package ethernetcontext
+// Package getmac provides networkservice chain elements for applying ethernet context destination mac
+package getmac
 
 import (
 	"context"
@@ -35,16 +35,16 @@ import (
 
 // NewServer creates a NetworkServiceServer chain element to set the EthernetContext for Kernel connection request
 func NewServer(сс *grpc.ClientConn) networkservice.NetworkServiceServer {
-	return &setEthernetContextServer{
+	return &getMacServer{
 		client: configurator.NewConfiguratorClient(сс),
 	}
 }
 
-type setEthernetContextServer struct {
+type getMacServer struct {
 	client configurator.ConfiguratorClient
 }
 
-func (s *setEthernetContextServer) Request(ctx context.Context, request *networkservice.NetworkServiceRequest) (*connection.Connection, error) {
+func (s *getMacServer) Request(ctx context.Context, request *networkservice.NetworkServiceRequest) (*connection.Connection, error) {
 	conn, err := next.Server(ctx).Request(ctx, request)
 	if err == nil && request.GetConnection().GetContext().IsEthernetContextEmtpy() {
 		request.GetConnection().GetContext().EthernetContext = s.createEthernetContext(conn)
@@ -52,11 +52,11 @@ func (s *setEthernetContextServer) Request(ctx context.Context, request *network
 	return conn, err
 }
 
-func (s *setEthernetContextServer) Close(ctx context.Context, conn *connection.Connection) (*empty.Empty, error) {
+func (s *getMacServer) Close(ctx context.Context, conn *connection.Connection) (*empty.Empty, error) {
 	return next.Server(ctx).Close(ctx, conn)
 }
 
-func (s *setEthernetContextServer) createEthernetContext(conn *connection.Connection) *connectioncontext.EthernetContext {
+func (s *getMacServer) createEthernetContext(conn *connection.Connection) *connectioncontext.EthernetContext {
 	dump, err := s.client.Dump(context.Background(), &configurator.DumpRequest{})
 	if err != nil {
 		logrus.Errorf("An error during ConfiguratorClient.Dump, err: %v", err.Error())
