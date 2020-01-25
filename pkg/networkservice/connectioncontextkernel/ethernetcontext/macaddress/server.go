@@ -21,6 +21,9 @@ package macaddress
 
 import (
 	"context"
+
+	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/vppagent"
+
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
@@ -28,8 +31,6 @@ import (
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/networkservice"
 
 	"github.com/networkservicemesh/sdk/pkg/networkservice/core/next"
-
-	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/vppagent"
 )
 
 type setKernelMacServer struct{}
@@ -63,20 +64,18 @@ func NewServer() networkservice.NetworkServiceServer {
 
 func (s *setKernelMacServer) Request(ctx context.Context, request *networkservice.NetworkServiceRequest) (*connection.Connection, error) {
 	if mechanism := kernel.ToMechanism(request.GetConnection().GetMechanism()); mechanism != nil {
-		s.setDstMac(ctx, request.GetConnection())
+		config := vppagent.Config(ctx)
+		current := len(config.LinuxConfig.Interfaces) - 1
+		config.LinuxConfig.Interfaces[current].PhysAddress = request.GetConnection().GetContext().GetEthernetContext().GetDstMac()
 	}
 	return next.Server(ctx).Request(ctx, request)
 }
 
 func (s *setKernelMacServer) Close(ctx context.Context, conn *connection.Connection) (*empty.Empty, error) {
 	if mechanism := kernel.ToMechanism(conn.GetMechanism()); mechanism != nil {
-		s.setDstMac(ctx, conn)
+		config := vppagent.Config(ctx)
+		current := len(config.LinuxConfig.Interfaces) - 1
+		config.LinuxConfig.Interfaces[current].PhysAddress = conn.GetContext().GetEthernetContext().GetDstMac()
 	}
 	return next.Server(ctx).Close(ctx, conn)
-}
-
-func (s *setKernelMacServer) setDstMac(ctx context.Context, conn *connection.Connection) {
-	config := vppagent.Config(ctx)
-	current := len(config.LinuxConfig.Interfaces) - 1
-	config.LinuxConfig.Interfaces[current].PhysAddress = conn.GetContext().GetEthernetContext().DstMac
 }

@@ -1,5 +1,3 @@
-// Copyright (c) 2020 Doc.ai and/or its affiliates.
-//
 // Copyright (c) 2020 Cisco Systems, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -34,8 +32,8 @@ const (
 	configKey contextKeyType = "configKey"
 )
 
-// WithConfig gets vppagent config from context
-func WithConfig(ctx context.Context) context.Context {
+// withConfig gets vppagent config from context
+func withConfig(ctx context.Context) context.Context {
 	if config, ok := ctx.Value(configKey).(*configurator.Config); ok && config != nil {
 		return ctx
 	}

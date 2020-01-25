@@ -18,27 +18,23 @@ package macaddress
 
 import (
 	"context"
+	"testing"
+
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/ligato/vpp-agent/api/models/linux"
+	"github.com/networkservicemesh/sdk/pkg/networkservice/core/next"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
+
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/kernel"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connectioncontext"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/networkservice"
+
 	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/vppagent"
-	"github.com/networkservicemesh/sdk/pkg/networkservice/core/next"
-	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestClientBasic(t *testing.T) {
-	ctx := vppagent.WithConfig(context.Background())
-	config := vppagent.Config(ctx)
-	config.LinuxConfig = &linux.ConfigData{
-		Interfaces: []*linux.Interface{
-			{
-				Name: "SRC-1",
-			},
-		},
-	}
 	request := &networkservice.NetworkServiceRequest{
 		Connection: &connection.Connection{
 			Id: "1",
@@ -52,16 +48,45 @@ func TestClientBasic(t *testing.T) {
 			},
 		},
 	}
-	server := next.NewNetworkServiceServer(NewServer())
-	cc, err := server.Request(ctx, request)
-	assert.NoError(t, err)
-	assert.NotNil(t, cc)
-	assert.NotEqual(t, nil, cc)
-	for _, iface := range config.LinuxConfig.Interfaces {
-		if iface.Name == "SRC-"+request.Connection.Id {
-			assert.Equal(t, iface.PhysAddress, request.Connection.Context.EthernetContext.DstMac)
-			return
-		}
+	server := next.NewNetworkServiceClient(vppagent.NewClient(), &testingClient{t}, NewClient())
+	_, _ = server.Request(context.Background(), request)
+	_, _ = server.Close(context.Background(), request.Connection)
+}
+
+type testingClient struct {
+	*testing.T
+}
+
+func (t *testingClient) Request(ctx context.Context, in *networkservice.NetworkServiceRequest, opts ...grpc.CallOption) (*connection.Connection, error) {
+	config := vppagent.Config(ctx)
+	assert.NotNil(t, config)
+	targetInterface := &linux.Interface{
+		Name: "SRC-1",
 	}
-	assert.FailNow(t, "interface SRC-1 not found in vpp-config")
+	config.LinuxConfig = &linux.ConfigData{
+		Interfaces: []*linux.Interface{
+			targetInterface,
+		},
+	}
+	conn, err := next.Client(ctx).Request(ctx, in, opts...)
+	assert.Nil(t, err)
+	assert.Equal(t, targetInterface.PhysAddress, conn.GetContext().GetEthernetContext().GetSrcMac())
+	return conn, err
+}
+
+func (t *testingClient) Close(ctx context.Context, conn *connection.Connection, opts ...grpc.CallOption) (*empty.Empty, error) {
+	config := vppagent.Config(ctx)
+	assert.NotNil(t, config)
+	targetInterface := &linux.Interface{
+		Name: "SRC-1",
+	}
+	config.LinuxConfig = &linux.ConfigData{
+		Interfaces: []*linux.Interface{
+			targetInterface,
+		},
+	}
+	result, err := next.Client(ctx).Close(ctx, conn, opts...)
+	assert.Nil(t, err)
+	assert.Equal(t, targetInterface.PhysAddress, conn.GetContext().GetEthernetContext().GetSrcMac())
+	return result, err
 }

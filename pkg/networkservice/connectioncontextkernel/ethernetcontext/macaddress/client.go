@@ -1,3 +1,5 @@
+// Copyright (c) 2020 Doc.ai and/or its affiliates.
+//
 // Copyright (c) 2020 Cisco Systems, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -61,22 +63,19 @@ func NewClient() networkservice.NetworkServiceClient {
 }
 
 func (c *setKernelMacClient) Request(ctx context.Context, request *networkservice.NetworkServiceRequest, opts ...grpc.CallOption) (*connection.Connection, error) {
-	if mechanism := kernel.ToMechanism(request.GetConnection().GetMechanism()); mechanism != nil {
-		c.setSrcMac(ctx, request.GetConnection())
+	config := vppagent.Config(ctx)
+	if mechanism := kernel.ToMechanism(request.GetConnection().GetMechanism()); mechanism != nil && len(config.GetLinuxConfig().GetInterfaces()) > 0 {
+		current := len(config.LinuxConfig.Interfaces) - 1
+		config.LinuxConfig.Interfaces[current].PhysAddress = request.GetConnection().GetContext().GetEthernetContext().GetSrcMac()
 	}
 	return next.Client(ctx).Request(ctx, request, opts...)
 }
 
 func (c *setKernelMacClient) Close(ctx context.Context, conn *connection.Connection, opts ...grpc.CallOption) (*empty.Empty, error) {
-	conf := vppagent.Config(ctx)
-	if mechanism := kernel.ToMechanism(conn.GetMechanism()); mechanism != nil && len(conf.GetLinuxConfig().GetInterfaces()) > 0 {
-		c.setSrcMac(ctx, conn)
+	config := vppagent.Config(ctx)
+	if mechanism := kernel.ToMechanism(conn.GetMechanism()); mechanism != nil && len(config.GetLinuxConfig().GetInterfaces()) > 0 {
+		current := len(config.LinuxConfig.Interfaces) - 1
+		config.LinuxConfig.Interfaces[current].PhysAddress = conn.GetContext().GetEthernetContext().GetSrcMac()
 	}
 	return next.Client(ctx).Close(ctx, conn, opts...)
-}
-
-func (s *setKernelMacClient) setSrcMac(ctx context.Context, conn *connection.Connection) {
-	config := vppagent.Config(ctx)
-	current := len(config.LinuxConfig.Interfaces) - 1
-	config.LinuxConfig.Interfaces[current].PhysAddress = conn.GetContext().GetEthernetContext().DstMac
 }
