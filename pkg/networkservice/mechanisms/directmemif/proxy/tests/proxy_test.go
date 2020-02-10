@@ -19,6 +19,7 @@ package tests
 import (
 	"net"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -61,9 +62,9 @@ func TestTransferBetweenMemifProxies(t *testing.T) {
 }
 
 func TestProxyListenerCalled(t *testing.T) {
-	proxyStopped := false
+	proxyState := uint32(0)
 	p, err := proxy.NewWithCustomNetwork("source.sock", "target.sock", "unix", proxy.StopListenerAdapter(func() {
-		proxyStopped = true
+		atomic.StoreUint32(&proxyState, 1)
 	}))
 	require.Nil(t, err)
 	err = p.Start()
@@ -71,17 +72,17 @@ func TestProxyListenerCalled(t *testing.T) {
 	err = p.Stop()
 	require.Nil(t, err)
 	for t := time.Now(); time.Since(t) < time.Second; {
-		if proxyStopped {
+		if atomic.LoadUint32(&proxyState) != 0 {
 			break
 		}
 	}
-	require.True(t, proxyStopped)
+	require.True(t, atomic.LoadUint32(&proxyState) != 0)
 }
 
 func TestProxyListenerCalledOnDestroySocketFile(t *testing.T) {
-	proxyStopped := false
+	proxyState := uint32(0)
 	p, err := proxy.NewWithCustomNetwork("source.sock", "target.sock", "unix", proxy.StopListenerAdapter(func() {
-		proxyStopped = true
+		atomic.StoreUint32(&proxyState, 1)
 	}))
 	require.Nil(t, err)
 	err = p.Start()
@@ -91,11 +92,11 @@ func TestProxyListenerCalledOnDestroySocketFile(t *testing.T) {
 	err = os.Remove("source.sock")
 	require.Nil(t, err)
 	for t := time.Now(); time.Since(t) < time.Second; {
-		if proxyStopped {
+		if atomic.LoadUint32(&proxyState) != 0 {
 			break
 		}
 	}
-	require.True(t, proxyStopped)
+	require.True(t, atomic.LoadUint32(&proxyState) != 0)
 }
 
 func TestStartProxyIfSocketFileIsExist(t *testing.T) {
