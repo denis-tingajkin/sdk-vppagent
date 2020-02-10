@@ -20,6 +20,8 @@ package xconnectns
 import (
 	"net/url"
 
+	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/mechanisms/directmemif"
+
 	"github.com/networkservicemesh/sdk/pkg/networkservice/chains/client"
 	"github.com/networkservicemesh/sdk/pkg/networkservice/chains/endpoint"
 	"github.com/networkservicemesh/sdk/pkg/networkservice/common/clienturl"
@@ -72,7 +74,7 @@ func NewServer(name string, vppagentCC *grpc.ClientConn, baseDir string, u *url.
 			l2xconnect.NewClient(),
 		),
 		),
-		// TODO - directmemif goes between here and commit
+		directmemif.NewServer(),
 		ipaddress.NewServer(),
 		routes.NewServer(),
 		commit.NewServer(vppagentCC),
