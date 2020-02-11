@@ -78,6 +78,41 @@ func TestServerBasic(t *testing.T) {
 	checkThatProxyHasStopped(t, path.Join(dir, "test.sock"))
 }
 
+func TestServerReRequest(t *testing.T) {
+	dir, err := ioutil.TempDir(os.TempDir(), t.Name())
+	require.Nil(t, err)
+	defer func() {
+		_ = os.RemoveAll(dir)
+	}()
+	s := next.NewNetworkServiceServer(
+		vppagent.NewServer(),
+		directmemif.NewServerWithNetwork("unix"),
+		memif.NewServer(dir),
+		connect.NewServer(func(ctx context.Context, cc grpc.ClientConnInterface) networkservice.NetworkServiceClient {
+			return memif.NewClient(dir)
+		}, grpc.WithInsecure()),
+	)
+	r := &networkservice.NetworkServiceRequest{
+		Connection: &networkservice.Connection{
+			Id: "1",
+			Mechanism: &networkservice.Mechanism{
+				Cls:  cls.LOCAL,
+				Type: memif_mechanisms.MECHANISM,
+				Parameters: map[string]string{
+					memif_mechanisms.SocketFilename: "test.sock",
+				},
+			},
+		},
+	}
+	_, err = s.Request(clienturl.WithClientURL(context.Background(), &url.URL{}), r)
+	require.Nil(t, err)
+	_, err = s.Request(clienturl.WithClientURL(context.Background(), &url.URL{}), r)
+	require.Nil(t, err)
+	_, err = s.Close(clienturl.WithClientURL(context.Background(), &url.URL{}), r.Connection)
+	require.Nil(t, err)
+	checkThatProxyHasStopped(t, path.Join(dir, "test.sock"))
+}
+
 func checkThatProxyHasStopped(t *testing.T, socketPath string) {
 	var err error
 	source, err := net.ResolveUnixAddr("unix", socketPath)

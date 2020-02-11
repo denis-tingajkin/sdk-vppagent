@@ -80,10 +80,12 @@ func (d *directMemifServer) Request(ctx context.Context, request *networkservice
 		prev := d.proxies[conn.Id]
 		if prev != nil {
 			_ = prev.Stop()
+			d.executor.AsyncExec(func() {
+				d.proxies[conn.Id] = p
+			})
+		} else {
+			d.proxies[conn.Id] = p
 		}
-	})
-	d.executor.AsyncExec(func() {
-		d.proxies[conn.Id] = p
 	})
 	err = p.Start()
 	if err != nil {
