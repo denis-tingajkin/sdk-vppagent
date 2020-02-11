@@ -19,13 +19,11 @@ package directmemif
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/networkservicemesh/api/pkg/api/networkservice"
 	"github.com/networkservicemesh/sdk/pkg/networkservice/core/next"
 	"github.com/networkservicemesh/sdk/pkg/tools/serialize"
-	"github.com/pkg/errors"
 
 	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/mechanisms/directmemif/proxy"
 	"github.com/networkservicemesh/sdk-vppagent/pkg/networkservice/vppagent"
@@ -67,12 +65,6 @@ func (d *directMemifServer) Request(ctx context.Context, request *networkservice
 		return conn, err
 	}
 	c.GetVppConfig().Interfaces = c.GetVppConfig().GetInterfaces()[:l-2]
-	d.executor.SyncExec(func() {
-		_, ok := d.proxies[request.Connection.Id]
-		if ok {
-			err = errors.New(fmt.Sprintf("proxy with id %v already exsist", request.Connection.Id))
-		}
-	})
 	if err != nil {
 		return nil, err
 	}
@@ -81,10 +73,18 @@ func (d *directMemifServer) Request(ctx context.Context, request *networkservice
 			delete(d.proxies, request.Connection.Id)
 		})
 	}))
-	d.proxies[conn.Id] = p
 	if err != nil {
 		return nil, err
 	}
+	d.executor.AsyncExec(func() {
+		prev := d.proxies[conn.Id]
+		if prev != nil {
+			_ = prev.Stop()
+		}
+	})
+	d.executor.AsyncExec(func() {
+		d.proxies[conn.Id] = p
+	})
 	err = p.Start()
 	if err != nil {
 		return nil, err
