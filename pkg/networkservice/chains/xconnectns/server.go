@@ -55,6 +55,7 @@ func NewServer(name string, vppagentCC *grpc.ClientConn, baseDir string, u *url.
 		name,
 		// Make sure we have a fresh empty config for everyone in the chain to use
 		vppagent.NewServer(),
+		directmemif.NewServer(),
 		// Preference ordered list of mechanisms we support for incoming connections
 		memif.NewServer(baseDir),
 		kernel.NewServer(),
@@ -71,10 +72,8 @@ func NewServer(name string, vppagentCC *grpc.ClientConn, baseDir string, u *url.
 			vxlan.NewClient(),
 			// l2 cross connect (xconnect) between incoming and outgoing connections
 			// TODO - properly support l3xconnect for IP payload
-			l2xconnect.NewClient(),
+			l2xconnect.NewClient()),
 		),
-		),
-		directmemif.NewServer(),
 		ipaddress.NewServer(),
 		routes.NewServer(),
 		commit.NewServer(vppagentCC),

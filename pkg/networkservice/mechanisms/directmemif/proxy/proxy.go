@@ -28,9 +28,8 @@ import (
 )
 
 const (
-	bufferSize     = 128
-	cmsgSize       = 24
-	defaultNetwork = "unixpacket"
+	bufferSize = 128
+	cmsgSize   = 24
 )
 
 // StopListenerAdapter adapts func() to Listener interface
@@ -69,13 +68,8 @@ type connectionResult struct {
 	conn *net.UnixConn
 }
 
-// New creates a new proxy for memif connection with specific proxy event listener
-func New(sourceSocket, targetSocket string, listener Listener) (Proxy, error) {
-	return NewWithCustomNetwork(sourceSocket, targetSocket, defaultNetwork, listener)
-}
-
-// NewWithCustomNetwork creates a new proxy for memif connection with specific network
-func NewWithCustomNetwork(sourceSocket, targetSocket, network string, listener Listener) (Proxy, error) {
+// New creates a new proxy for memif connection with specific network
+func New(sourceSocket, targetSocket, network string, listener Listener) (Proxy, error) {
 	source, err := net.ResolveUnixAddr(network, sourceSocket)
 	if err != nil {
 		return nil, err

@@ -32,31 +32,41 @@ import (
 )
 
 type directMemifServer struct {
+	net      string
 	executor serialize.Executor
 	proxies  map[string]proxy.Proxy
 }
 
 // NewServer creates new direct memif server
 func NewServer() networkservice.NetworkServiceServer {
+	return NewServerWithNetwork("unixpacket")
+}
+
+// NewServerWithNetwork creates new direct memif server with specific network
+func NewServerWithNetwork(net string) networkservice.NetworkServiceServer {
 	return &directMemifServer{
 		executor: serialize.NewExecutor(),
 		proxies:  map[string]proxy.Proxy{},
+		net:      net,
 	}
 }
 
 func (d *directMemifServer) Request(ctx context.Context, request *networkservice.NetworkServiceRequest) (*networkservice.Connection, error) {
+	conn, err := next.Server(ctx).Request(ctx, request)
+	if err != nil {
+		return conn, err
+	}
 	c := vppagent.Config(ctx)
 	l := len(c.GetVppConfig().GetInterfaces())
 	if l < 2 {
-		return next.Server(ctx).Request(ctx, request)
+		return conn, err
 	}
 	client := c.GetVppConfig().GetInterfaces()[l-2]
 	endpoint := c.GetVppConfig().GetInterfaces()[l-1]
-	c.GetVppConfig().Interfaces = c.GetVppConfig().GetInterfaces()[:l-2]
 	if client.GetMemif() == nil || endpoint.GetMemif() == nil {
-		return next.Server(ctx).Request(ctx, request)
+		return conn, err
 	}
-	var err error
+	c.GetVppConfig().Interfaces = c.GetVppConfig().GetInterfaces()[:l-2]
 	d.executor.SyncExec(func() {
 		_, ok := d.proxies[request.Connection.Id]
 		if ok {
@@ -66,12 +76,12 @@ func (d *directMemifServer) Request(ctx context.Context, request *networkservice
 	if err != nil {
 		return nil, err
 	}
-	p, err := proxy.New(client.GetMemif().GetSocketFilename(), endpoint.GetMemif().GetSocketFilename(), proxy.StopListenerAdapter(func() {
+	p, err := proxy.New(client.GetMemif().GetSocketFilename(), endpoint.GetMemif().GetSocketFilename(), d.net, proxy.StopListenerAdapter(func() {
 		d.executor.AsyncExec(func() {
 			delete(d.proxies, request.Connection.Id)
 		})
 	}))
-
+	d.proxies[conn.Id] = p
 	if err != nil {
 		return nil, err
 	}
@@ -79,19 +89,23 @@ func (d *directMemifServer) Request(ctx context.Context, request *networkservice
 	if err != nil {
 		return nil, err
 	}
-	return request.Connection, nil
+	return conn, err
 }
 
 func (d *directMemifServer) Close(ctx context.Context, conn *networkservice.Connection) (*empty.Empty, error) {
 	c := vppagent.Config(ctx)
+	r, err := next.Server(ctx).Close(ctx, conn)
+	if err != nil {
+		return r, err
+	}
 	l := len(c.GetVppConfig().GetInterfaces())
 	if l < 2 {
-		return next.Server(ctx).Close(ctx, conn)
+		return r, err
 	}
 	client := c.GetVppConfig().GetInterfaces()[l-2]
 	endpoint := c.GetVppConfig().GetInterfaces()[l-1]
 	if client.GetMemif() == nil || endpoint.GetMemif() == nil {
-		return next.Server(ctx).Close(ctx, conn)
+		return r, err
 	}
 	d.executor.AsyncExec(func() {
 		p := d.proxies[conn.Id]
@@ -100,5 +114,5 @@ func (d *directMemifServer) Close(ctx context.Context, conn *networkservice.Conn
 			delete(d.proxies, conn.Id)
 		}
 	})
-	return new(empty.Empty), nil
+	return r, err
 }
